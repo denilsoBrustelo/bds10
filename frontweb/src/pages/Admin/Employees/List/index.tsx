@@ -1,41 +1,82 @@
-import './styles.css';
-
+import { AxiosRequestConfig } from "axios";
 import Pagination from 'components/Pagination';
 import EmployeeCard from 'components/EmployeeCard';
+import { useCallback, useEffect, useState } from "react";
+import { SpringPage } from "types/vendor/spring";
 import { Link } from 'react-router-dom';
+import { Employee } from 'types/employee';
+import { requestBackend } from "util/requests";
+import { hasAnyRoles } from "util/auth";
 
-const employeeHardCode = { // delete
-  id: 1,
-  name: "Carlos",
-  email: "carlos@gmail.com",
-  department: {
-    id: 1,
-    name: "Sales"
-  }
-};
+import './styles.css';
+
+type ControlComponentsData = {
+  activePage: number;
+}
 
 const List = () => {
 
+  const [page, setPage] = useState<SpringPage<Employee>>();
+
+  const [ controlComponentsData, setControlComponentsData] = useState<ControlComponentsData>( 
+    {
+      activePage: 0
+    }  
+  );
+
   const handlePageChange = (pageNumber: number) => {
-    // to do
+    
+    setControlComponentsData({activePage: pageNumber });
   };
+
+  const getEmployees = useCallback(() => {
+
+    const config : AxiosRequestConfig = { 
+      method: 'GET',
+      url: "/employees",
+      withCredentials: true,
+      params: {
+        page: controlComponentsData.activePage,
+        size: 3
+      }
+    };
+
+    requestBackend(config).then((response) => {
+      setPage(response.data);
+    });
+
+  }, [controlComponentsData]);
+
+
+  useEffect( () => {
+    getEmployees();
+  }, [getEmployees])
 
   return (
     <>
       <Link to="/admin/employees/create">
-        <button className="btn btn-primary text-white btn-crud-add">
+
+      { hasAnyRoles(['ROLE_ADMIN']) && (
+          <button className="btn btn-primary text-white btn-crud-add">
           ADICIONAR
         </button>
+
+      )}
+
       </Link>
 
-      <EmployeeCard employee={employeeHardCode} />
-      <EmployeeCard employee={employeeHardCode} />
-      <EmployeeCard employee={employeeHardCode} />
-      <EmployeeCard employee={employeeHardCode} />
+
+      <div className="row">
+        {  page?.content.map( employee => (
+            <div className="col-sm-6 col-md-12" key={employee.id} >
+              <EmployeeCard employee={employee} />
+            </div>   
+        )) }
+      </div>
 
       <Pagination
-        forcePage={0}
-        pageCount={1}
+        forcePage={page?.number}
+        pageCount={(page) ? page.totalPages : 0} 
         range={3}
         onChange={handlePageChange}
       />
